@@ -5,6 +5,7 @@ use Grav\Common\Filesystem\Folder;
 use Grav\Common\Page\Page;
 use Grav\Common\Plugin;
 use Grav\Common\Utils;
+use Grav\Framework\Psr7\Response;
 use RocketTheme\Toolbox\Event\Event;
 
 class EmailpostPlugin extends Plugin
@@ -158,14 +159,18 @@ class EmailpostPlugin extends Plugin
 
     protected function sendResponse(int $status, string $message, Event $event): void
     {
-        http_response_code($status);
-        header('Content-Type: application/json');
-        echo json_encode(['status' => $status, 'message' => $message]);
+        $payload = json_encode(['status' => $status, 'message' => $message]);
+        if ($payload === false) {
+            $payload = '{"status":' . $status . ',"message":"JSON encoding error"}';
+        }
+
+        $response = new Response($status, ['Content-Type' => 'application/json'], $payload);
 
         if (isset($this->grav['debugger'])) {
             $this->grav['debugger']->addMessage('[Emailpost] ' . $message);
         }
+
         $event->stopPropagation();
-        $this->grav->close($event);
+        $this->grav->close($response);
     }
 }
