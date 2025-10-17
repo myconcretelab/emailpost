@@ -10,6 +10,9 @@ use RocketTheme\Toolbox\Event\Event;
 
 class EmailpostPlugin extends Plugin
 {
+    /** @var array<string, mixed> */
+    protected array $debugContext = [];
+
     public static function getSubscribedEvents(): array
     {
         return [
@@ -35,23 +38,38 @@ class EmailpostPlugin extends Plugin
         $route = trim($this->config->get('plugins.emailpost.webhook_route', '/emailpost'), '/');
 
         if (trim($uri->path(), '/') !== $route) {
+            $this->log('debug', 'Ignored request, route mismatch', [
+                'expected_route' => $route,
+                'current_path' => trim($uri->path(), '/'),
+            ]);
             return;
         }
 
+        $this->debugContext = [
+            'route' => $route,
+            'method' => $request->getMethod(),
+            'ip' => $request->server->get('REMOTE_ADDR'),
+            'has_files' => !empty($_FILES),
+            'content_length' => $request->server->getInt('CONTENT_LENGTH'),
+        ];
+
         if ($request->getMethod() !== 'POST') {
+            $this->log('warning', 'Rejected request with invalid method', $this->debugContext);
             $this->sendResponse(405, 'Method Not Allowed', $event);
             return;
         }
 
         try {
             $this->handleIncomingMail();
+            $this->log('info', 'Post successfully created', $this->debugContext);
             $this->sendResponse(200, 'Post created', $event);
         } catch (\RuntimeException $e) {
-            $this->grav['log']->error('[Emailpost] ' . $e->getMessage());
+            $this->log('error', 'Handled runtime error: ' . $e->getMessage(), $this->debugContext + ['exception' => $e]);
             $this->sendResponse(400, $e->getMessage(), $event);
         } catch (\Throwable $e) {
-            $this->grav['log']->critical('[Emailpost] ' . $e->getMessage());
-            $this->sendResponse(500, 'Internal Server Error', $event);
+            $this->log('critical', 'Unhandled exception: ' . $e->getMessage(), $this->debugContext + ['exception' => $e]);
+            $message = $this->config->get('system.debugger.enabled') ? $e->getMessage() : 'Internal Server Error';
+            $this->sendResponse(500, $message, $event);
         }
     }
 
@@ -80,6 +98,14 @@ class EmailpostPlugin extends Plugin
         $folderName = $folderPrefix . '-' . $slug;
 
         $template = $this->config->get('plugins.emailpost.template', 'item');
+        $this->debugContext += [
+            'parent_route' => $parentRoute,
+            'parent_path' => $parent->path(),
+            'subject' => $subject,
+            'slug' => $slug,
+            'folder' => $folderName,
+            'template' => $template,
+        ];
 
         $page = new Page();
         $page->extension('.md');
@@ -176,11 +202,23 @@ class EmailpostPlugin extends Plugin
 
         $response = new Response($status, ['Content-Type' => 'application/json'], $payload);
 
-        if (isset($this->grav['debugger'])) {
+        if (isset($this->grav['debugger']) && $this->config->get('system.debugger.enabled')) {
             $this->grav['debugger']->addMessage('[Emailpost] ' . $message);
         }
 
         $event->stopPropagation();
         $this->grav->close($response);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    protected function log(string $level, string $message, array $context = []): void
+    {
+        if (!isset($this->grav['log'])) {
+            return;
+        }
+
+        $this->grav['log']->log($level, '[Emailpost] ' . $message, $context);
     }
 }
