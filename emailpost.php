@@ -79,12 +79,15 @@ class EmailpostPlugin extends Plugin
         $folderPrefix = date('YmdHis');
         $folderName = $folderPrefix . '-' . $slug;
 
-        $page = new Page;
-        $page->init(new \stdClass);
-        $page->template($this->config->get('plugins.emailpost.template', 'item'));
+        $template = $this->config->get('plugins.emailpost.template', 'item');
+
+        $page = new Page();
+        $page->extension('.md');
+        $page->template($template);
+        $page->name($template . '.md');
         $page->title($subject);
         $page->slug($slug);
-        $page->folder($folderName);
+        $page->path($parent->path() . '/' . $folderName);
         $page->parent($parent);
         $page->setRawContent($content);
 
@@ -94,7 +97,14 @@ class EmailpostPlugin extends Plugin
         $page->header($header);
 
         $pagePath = $page->path();
-        if (!is_dir($pagePath) && !Folder::create($pagePath)) {
+        if (empty($pagePath)) {
+            throw new \RuntimeException('Unable to determine page path');
+        }
+        if (!is_dir($pagePath)) {
+            Folder::create($pagePath);
+        }
+
+        if (!is_dir($pagePath)) {
             throw new \RuntimeException('Unable to create page directory');
         }
 
