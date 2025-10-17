@@ -1,0 +1,4 @@
+enabled: true
+webhook_route: /emailpost
+parent_route: /blog
+template: item

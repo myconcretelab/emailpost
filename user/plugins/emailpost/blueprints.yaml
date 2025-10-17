@@ -1,0 +1,49 @@
+name: Emailpost
+version: 0.1.0
+description: Create new blog posts from incoming Mailgun emails.
+icon: envelope
+author:
+  name: Emailpost Maintainers
+  email: dev@example.com
+homepage: https://github.com/example/emailpost
+keywords: grav, plugin, mailgun, blog
+bugs: https://github.com/example/emailpost/issues
+docs: https://github.com/example/emailpost
+license: MIT
+form:
+  validation: strict
+  fields:
+    enabled:
+      type: toggle
+      label: Plugin Status
+      highlight: 1
+      default: 0
+      options:
+        1: Enabled
+        0: Disabled
+      validate:
+        type: bool
+    webhook_route:
+      type: text
+      label: Webhook Route
+      help: Relative path that Mailgun should post to (e.g. /emailpost)
+      default: /emailpost
+      validate:
+        required: true
+    parent_route:
+      type: pages
+      label: Blog Parent Page
+      help: Page that will contain the generated posts.
+      show_all: false
+      show_modular: false
+      show_root: false
+      show_invisible: true
+      validate:
+        required: true
+    template:
+      type: text
+      label: Page Template
+      help: Template used for generated posts.
+      default: item
+      validate:
+        required: true
