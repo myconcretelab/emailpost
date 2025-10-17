@@ -38,19 +38,19 @@ class EmailpostPlugin extends Plugin
         }
 
         if ($request->getMethod() !== 'POST') {
-            $this->sendResponse(405, 'Method Not Allowed');
+            $this->sendResponse(405, 'Method Not Allowed', $event);
             return;
         }
 
         try {
             $this->handleIncomingMail();
-            $this->sendResponse(200, 'Post created');
+            $this->sendResponse(200, 'Post created', $event);
         } catch (\RuntimeException $e) {
             $this->grav['log']->error('[Emailpost] ' . $e->getMessage());
-            $this->sendResponse(400, $e->getMessage());
+            $this->sendResponse(400, $e->getMessage(), $event);
         } catch (\Throwable $e) {
             $this->grav['log']->critical('[Emailpost] ' . $e->getMessage());
-            $this->sendResponse(500, 'Internal Server Error');
+            $this->sendResponse(500, 'Internal Server Error', $event);
         }
     }
 
@@ -156,7 +156,7 @@ class EmailpostPlugin extends Plugin
         return null;
     }
 
-    protected function sendResponse(int $status, string $message): void
+    protected function sendResponse(int $status, string $message, Event $event): void
     {
         http_response_code($status);
         header('Content-Type: application/json');
@@ -165,6 +165,7 @@ class EmailpostPlugin extends Plugin
         if (isset($this->grav['debugger'])) {
             $this->grav['debugger']->addMessage('[Emailpost] ' . $message);
         }
-        $this->grav->close();
+        $event->stopPropagation();
+        $this->grav->close($event);
     }
 }
